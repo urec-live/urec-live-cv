@@ -1,0 +1,61 @@
+{
+  "camera_id": "dev_cam_01",
+  "frame_interval_sec": 0.5,
+  "in_use_persist_sec": 3.0,
+  "motion": {
+    "keypoints_to_use": ["left_wrist", "right_wrist", "left_knee", "right_knee", "left_ankle", "right_ankle"],
+    "min_mean_pixel_movement": 10.0
+  },
+  "equipment_zones": [
+    {
+      "equipment_id": "treadmill_01",
+      "equipment_type": "treadmill",
+      "zone_xyxy": [120, 110, 520, 300]
+    },
+    {
+      "equipment_id": "treadmill_02",
+      "equipment_type": "treadmill",
+      "zone_xyxy": [120, 110, 520, 300]
+    },
+    {
+      "equipment_id": "elliptical_01",
+      "equipment_type": "elliptical",
+      "zone_xyxy": [600, 110, 980, 300]
+    },
+    {
+      "equipment_id": "elliptical_02",
+      "equipment_type": "elliptical",
+      "zone_xyxy": [600, 110, 980, 300]
+    },
+    {
+      "equipment_id": "bench_press_01",
+      "equipment_type": "bench_press",
+      "zone_xyxy": [480, 310, 740, 470]
+    },
+    {
+      "equipment_id": "barbell_rack_01",
+      "equipment_type": "barbell",
+      "zone_xyxy": [560, 340, 760, 470]
+    },
+    {
+      "equipment_id": "stairmaster_01",
+      "equipment_type": "stairmaster",
+      "zone_xyxy": [790, 320, 980, 470]
+    },
+    {
+      "equipment_id": "dumbbell_area_01",
+      "equipment_type": "dumbbells",
+      "zone_xyxy": [120, 500, 460, 790]
+    },
+    {
+      "equipment_id": "leg_press_01",
+      "equipment_type": "leg_press",
+      "zone_xyxy": [500, 500, 700, 790]
+    },
+    {
+      "equipment_id": "cable_machine_01",
+      "equipment_type": "cable_machine",
+      "zone_xyxy": [740, 500, 980, 790]
+    }
+  ]
+}

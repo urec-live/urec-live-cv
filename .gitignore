@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+
+# Local configs and videos
+configs/zones.json
+gym_videos/*.mp4
+gym_videos/*.mov
+gym_videos/*.mkv
+
+
+gym_videos/
+*.mp4
+*.avi
+
+# models and logs
+yolov8x.pt
+yolov8x-pose.pt

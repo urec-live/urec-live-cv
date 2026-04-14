@@ -1,0 +1,17 @@
+{
+  "default": "configs/zones.json",
+  "rules": [
+    {
+      "match": "raw_data",
+      "zones": "configs/zones_raw_data.json"
+    },
+    {
+      "match": "verified_data",
+      "zones": "configs/zones_verified_data.json"
+    },
+    {
+      "match": "test",
+      "zones": "configs/zones_test.json"
+    }
+  ]
+}

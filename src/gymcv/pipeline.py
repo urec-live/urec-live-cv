@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Tuple
 
@@ -19,6 +22,7 @@ class PipelineConfig:
     camera_id: str
     frame_interval_sec: float = 0.5
     in_use_persist_sec: float = 3.0
+    available_cooldown_sec: float = 2.0
     motion: MotionConfig = field(default_factory=MotionConfig)
     zones: List[Zone] = field(default_factory=list)
 
@@ -32,6 +36,7 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
         camera_id=str(data.get("camera_id", "cam_01")),
         frame_interval_sec=float(data.get("frame_interval_sec", 0.5)),
         in_use_persist_sec=float(data.get("in_use_persist_sec", 3.0)),
+        available_cooldown_sec=float(data.get("available_cooldown_sec", 2.0)),
         motion=MotionConfig(
             keypoints_to_use=tuple(motion_cfg.get("keypoints_to_use", MotionConfig().keypoints_to_use)),
             min_mean_pixel_movement=float(motion_cfg.get("min_mean_pixel_movement", 10.0)),
@@ -110,6 +115,35 @@ def _extract_first_pose_keypoints(pose_result) -> Optional[np.ndarray]:
     return xy[best].cpu().numpy()
 
 
+def _extract_pose_keypoints_list(pose_result) -> List[np.ndarray]:
+    if pose_result is None or pose_result.keypoints is None:
+        return []
+    kps = pose_result.keypoints
+    if kps.xy is None or len(kps.xy) == 0:
+        return []
+    return [kps.xy[i].cpu().numpy() for i in range(len(kps.xy))]
+
+
+def _keypoints_center(kps_xy: np.ndarray) -> Tuple[float, float]:
+    # Center from valid keypoints only.
+    if kps_xy.size == 0:
+        return 0.0, 0.0
+    valid = np.isfinite(kps_xy).all(axis=1)
+    pts = kps_xy[valid]
+    if pts.size == 0:
+        return 0.0, 0.0
+    return float(np.mean(pts[:, 0])), float(np.mean(pts[:, 1]))
+
+
+@lru_cache(maxsize=8)
+def _load_model(model_path: str) -> YOLO:
+    return YOLO(model_path)
+
+
+def _iso_from_epoch(epoch_ts: float) -> str:
+    return datetime.fromtimestamp(epoch_ts, tz=timezone.utc).isoformat()
+
+
 def run_usage_pipeline_on_video(
     *,
     video_path: str | Path,
@@ -124,18 +158,19 @@ def run_usage_pipeline_on_video(
     This MVP determines "in-zone" via person bbox center in the zone rectangle.
     It determines "motion" via mean keypoint displacement between sampled frames.
     """
-    det_model = YOLO(det_model_path)
-    pose_model = YOLO(pose_model_path)
+    det_model = _load_model(det_model_path)
+    pose_model = _load_model(pose_model_path)
 
     equipment_ids = [z.equipment_id for z in cfg.zones]
     states: Dict[str, EquipmentState] = init_states(equipment_ids)
     last_payloads: Dict[str, Optional[EquipmentStatus]] = {eid: None for eid in equipment_ids}
 
-    prev_pose_kps: Optional[np.ndarray] = None
+    prev_pose_kps_by_zone: Dict[str, Optional[np.ndarray]] = {z.equipment_id: None for z in cfg.zones}
 
     for video_ts, frame in _iter_video_frames(video_path, frame_interval_sec=cfg.frame_interval_sec):
-        # In dev, treat video timestamp as "now"; in production you would use time.time().
-        now_ts = float(video_ts)
+        # Keep state and payload timestamps consistent on system time.
+        now_ts = float(time.time())
+        payload_timestamp = _iso_from_epoch(now_ts)
 
         det_results = det_model.predict(source=frame, verbose=False, device=device)
         pose_results = pose_model.predict(source=frame, verbose=False, device=device)
@@ -144,11 +179,7 @@ def run_usage_pipeline_on_video(
         pose_r0 = pose_results[0] if pose_results else None
 
         person_boxes = _extract_person_boxes(det_r0)
-        curr_pose_kps = _extract_first_pose_keypoints(pose_r0)
-
-        motion_score = compute_pose_motion_score(prev_pose_kps, curr_pose_kps, cfg.motion)
-        motion_active = is_motion_active(motion_score, cfg.motion)
-        prev_pose_kps = curr_pose_kps
+        pose_people = _extract_pose_keypoints_list(pose_r0)
 
         # Zone occupancy: any detected person center inside zone.
         zone_occupied: Dict[str, bool] = {z.equipment_id: False for z in cfg.zones}
@@ -158,21 +189,39 @@ def run_usage_pipeline_on_video(
                 if z.contains_point(cx, cy):
                     zone_occupied[z.equipment_id] = True
 
+        zone_motion_active: Dict[str, bool] = {z.equipment_id: False for z in cfg.zones}
+        for z in cfg.zones:
+            curr_zone_kps: Optional[np.ndarray] = None
+            for kps in pose_people:
+                cx, cy = _keypoints_center(kps)
+                if z.contains_point(cx, cy):
+                    curr_zone_kps = kps
+                    break
+            prev_zone_kps = prev_pose_kps_by_zone[z.equipment_id]
+            motion_score = compute_pose_motion_score(prev_zone_kps, curr_zone_kps, cfg.motion)
+            zone_motion_active[z.equipment_id] = is_motion_active(motion_score, cfg.motion)
+            prev_pose_kps_by_zone[z.equipment_id] = curr_zone_kps
+
         for z in cfg.zones:
             st = states[z.equipment_id]
             states[z.equipment_id] = update_equipment_state(
                 state=st,
                 now_ts=now_ts,
                 person_in_zone=zone_occupied[z.equipment_id],
-                motion_active=motion_active,
+                motion_active=zone_motion_active[z.equipment_id],
                 persist_sec=cfg.in_use_persist_sec,
+                available_cooldown_sec=cfg.available_cooldown_sec,
             )
 
-            # Confidence: simple heuristic based on motion_score and occupancy.
-            conf = 0.5
-            if zone_occupied[z.equipment_id]:
-                conf += 0.25
-            conf += min(0.25, motion_score / max(cfg.motion.min_mean_pixel_movement, 1.0) * 0.25)
+            # Confidence tiers based on requested logic.
+            person_here = zone_occupied[z.equipment_id]
+            motion_here = zone_motion_active[z.equipment_id]
+            if person_here and motion_here:
+                conf = 0.9
+            elif person_here or motion_here:
+                conf = 0.6
+            else:
+                conf = 0.2
             conf = float(max(0.0, min(1.0, conf)))
 
             payload = build_status_payload(
@@ -180,6 +229,7 @@ def run_usage_pipeline_on_video(
                 equipment_type=z.equipment_type,
                 status=states[z.equipment_id].status,
                 confidence=conf,
+                timestamp=payload_timestamp,
             )
             if last_payloads[z.equipment_id] is None or payload.status != last_payloads[z.equipment_id].status:
                 last_payloads[z.equipment_id] = payload

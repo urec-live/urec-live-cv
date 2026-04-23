@@ -1,0 +1,51 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test & coverage
+.pytest_cache
+.coverage
+htmlcov/
+
+# Logs
+*.log
+*.pot
+
+# Video files (large)
+gym_videos/
+*.mp4
+*.mov
+*.mkv
+*.avi
+
+# Models (will need to be downloaded at runtime if needed)
+*.pt
+
+# Development
+.mypy_cache
+.ruff_cache
+.env.local
+configs/zones.json

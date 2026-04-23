@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -10,5 +11,16 @@ if str(SRC) not in sys.path:
 
 
 if __name__ == "__main__":
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True, app_dir="src")
+    # Get port from environment variable, default to 8000 for local development
+    port = int(os.getenv("PORT", "8000"))
+    # Disable reload in production (Railway will handle restarts)
+    reload = os.getenv("ENVIRONMENT", "development") == "development"
+    
+    uvicorn.run(
+        "backend.main:app",
+        host="0.0.0.0",
+        port=port,
+        reload=reload,
+        app_dir="src",
+    )
 

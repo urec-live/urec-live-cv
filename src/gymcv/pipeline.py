@@ -4,6 +4,7 @@ import json
 import math
 import time
 import warnings
+import requests
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -18,6 +19,21 @@ from gymcv.motion import MotionConfig, compute_pose_motion_score, is_motion_acti
 from gymcv.usage import EquipmentState, EquipmentStatus, build_status_payload, init_states, update_equipment_state
 from gymcv.zones import Zone, load_zones_from_config
 
+
+BACKEND_URL = "http://localhost:8080/api/equipment/status"
+
+def send_to_backend(payload):
+    try:
+        response = requests.post(BACKEND_URL, json={
+            "equipmentId": payload.equipment_id,
+            "equipmentType": payload.equipment_type,
+            "status": payload.status,
+            "confidence": payload.confidence,
+            "timestamp": payload.timestamp
+        })
+        print(f"Sent: {payload.equipment_id} -> {payload.status}")
+    except Exception as e:
+        print(f"Error sending to backend: {e}")  # Example backend URL for status updates
 
 @dataclass
 class PipelineConfig:
@@ -530,6 +546,7 @@ def run_usage_pipeline_on_video(
                     )
                     if last_payloads[z.equipment_id] is None or payload.status != last_payloads[z.equipment_id].status:
                         last_payloads[z.equipment_id] = payload
+                        send_to_backend(payload)
                         yield payload
     finally:
         if cfg.debug_mode:

@@ -35,6 +35,7 @@ def update_equipment_state(
     motion_active: bool,
     persist_sec: float,
     available_cooldown_sec: float = 2.0,
+    presence_only_mode: bool = False,
 ) -> EquipmentState:
     if person_in_zone:
         state.last_seen_person_ts = now_ts
@@ -52,13 +53,20 @@ def update_equipment_state(
         if (now_ts - state.in_use_since_ts) >= persist_sec:
             state.status = "IN_USE"
     else:
-        # Cooldown to avoid IN_USE -> AVAILABLE flicker
-        if state.status == "IN_USE":
+        # In presence-only mode, immediately go AVAILABLE when person leaves
+        if presence_only_mode and not person_in_zone:
+            state.in_use_since_ts = None
+            state.status = "AVAILABLE"
+        # Cooldown to avoid IN_USE -> AVAILABLE flicker (for motion-based mode)
+        elif state.status == "IN_USE":
             last_active = state.last_interaction_ts
             if last_active is not None and (now_ts - last_active) < available_cooldown_sec:
                 return state
-        state.in_use_since_ts = None
-        state.status = "AVAILABLE"
+            state.in_use_since_ts = None
+            state.status = "AVAILABLE"
+        else:
+            state.in_use_since_ts = None
+            state.status = "AVAILABLE"
 
     return state
 

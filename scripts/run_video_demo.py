@@ -19,6 +19,39 @@ from gymcv.pipeline import load_pipeline_config, run_usage_pipeline_on_video
 VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".m4v", ".webm"}
 
 
+def _is_live_cli_input(video_input: str) -> bool:
+    s = video_input.strip().lower()
+    if s in ("0", "webcam", "camera"):
+        return True
+    if s.isdigit():
+        return True
+    if s.startswith(("rtsp://", "http://", "https://")):
+        return True
+    if s.startswith("/dev/"):
+        return True
+    return False
+
+
+def _apply_runtime_overrides(
+    cfg,
+    *,
+    frame_skip: Optional[int],
+    debug: bool,
+    presence_only_mode: bool,
+) -> None:
+    if frame_skip is not None:
+        cfg.frame_skip = int(frame_skip)
+    if debug:
+        cfg.debug_mode = True
+    if presence_only_mode:
+        cfg.presence_only_mode = True
+
+
+def _apply_preview_overrides(cfg, *, preview_every_frame: bool) -> None:
+    if preview_every_frame:
+        cfg.preview_every_frame = True
+
+
 def _post_json(url: str, data: dict, timeout_sec: float = 2.0) -> None:
     body = json.dumps(data).encode("utf-8")
     req = urllib.request.Request(
@@ -117,10 +150,52 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--pose-model", default="yolov8x-pose.pt", help="Ultralytics pose model path/name")
     parser.add_argument("--device", default=None, help="e.g. 'cpu', '0' for GPU")
     parser.add_argument("--post-url", default=None, help="Optional API URL, e.g. http://127.0.0.1:8000/equipment/status")
+    parser.add_argument("--frame-skip", type=int, default=None, help="Extra frames to discard between processed frames (live/RTSP)")
+    parser.add_argument("--debug", action="store_true", help="Draw zones, status, confidence, FPS (press q in window to stop)")
+    parser.add_argument(
+        "--presence-only-mode",
+        action="store_true",
+        help="Mark zone IN_USE based on person presence (no motion required), useful for class demos",
+    )
+    parser.add_argument(
+        "--preview-every-frame",
+        action="store_true",
+        help="Show preview on every captured frame while running inference at frame_interval_sec",
+    )
     args = parser.parse_args(argv)
 
     default_zones = Path(args.zones) if args.zones else _resolve_default_zones_path()
     zones_map = _load_zones_map(args.zones_map)
+
+    if _is_live_cli_input(args.video):
+        if not default_zones or not default_zones.exists():
+            print("Live/RTSP mode requires --zones or configs/zones.json", file=sys.stderr)
+            return 2
+        cfg = load_pipeline_config(default_zones)
+        _apply_runtime_overrides(
+            cfg,
+            frame_skip=args.frame_skip,
+            debug=args.debug,
+            presence_only_mode=args.presence_only_mode,
+        )
+        _apply_preview_overrides(cfg, preview_every_frame=args.preview_every_frame)
+        print(f"Live input: {args.video!r} | zones: {default_zones}")
+        for status in run_usage_pipeline_on_video(
+            video_path=args.video,
+            cfg=cfg,
+            det_model_path=args.det_model,
+            pose_model_path=args.pose_model,
+            device=args.device,
+        ):
+            payload = asdict(status)
+            print(json.dumps(payload, ensure_ascii=False))
+            if args.post_url:
+                try:
+                    _post_json(args.post_url, payload)
+                except Exception as e:
+                    print(f"POST failed: {e}", file=sys.stderr)
+        return 0
+
     videos = _collect_videos_from_input(args.video)
     if not videos:
         print(
@@ -134,6 +209,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     for video in videos:
         zones_path = _pick_zones_for_video(video, zones_map, default_zones)
         cfg = load_pipeline_config(zones_path)
+        _apply_runtime_overrides(
+            cfg,
+            frame_skip=args.frame_skip,
+            debug=args.debug,
+            presence_only_mode=args.presence_only_mode,
+        )
+        _apply_preview_overrides(cfg, preview_every_frame=args.preview_every_frame)
         print(f"Processing video: {video} | zones: {zones_path}")
         for status in run_usage_pipeline_on_video(
             video_path=video,

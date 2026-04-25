@@ -57,5 +57,17 @@
       "equipment_type": "cable_machine",
       "zone_xyxy": [740, 500, 980, 790]
     }
-  ]
+  ],
+  "frame_skip": 0,
+  "debug_mode": false,
+  "preview_every_frame": false,
+  "presence_only_mode": false,
+  "inference_profile": "accurate",
+  "inference": {
+    "profile": "accurate",
+    "det_model": "yolov8x.pt",
+    "pose_model": "yolov8x-pose.pt",
+    "frame_skip": 0,
+    "debug_mode": false
+  }
 }

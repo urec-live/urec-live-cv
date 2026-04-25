@@ -1,0 +1,18 @@
+{
+  "camera_id": "laptop_cam",
+  "frame_interval_sec": 0.5,
+  "in_use_persist_sec": 30.0,
+  "available_cooldown_sec": 60.0,
+  "equipment_zones": [
+    {
+      "equipment_id": "BP001",
+      "equipment_type": "bench_press",
+      "zone_xyxy": [352, 448, 680, 867]
+    },
+    {
+      "equipment_id": "IP001",
+      "equipment_type": "incline_press",
+      "zone_xyxy": [1104, 479, 1299, 683]
+    }
+  ]
+}

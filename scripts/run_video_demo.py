@@ -114,7 +114,6 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="Optional JSON mapping for multi-camera views. See configs/zones_map.example.json",
     )
     parser.add_argument("--det-model", default="yolov8x.pt", help="Ultralytics detection model path/name")
-    parser.add_argument("--pose-model", default="yolov8x-pose.pt", help="Ultralytics pose model path/name")
     parser.add_argument("--device", default=None, help="e.g. 'cpu', '0' for GPU")
     parser.add_argument("--post-url", default=None, help="Optional API URL, e.g. http://127.0.0.1:8000/equipment/status")
     args = parser.parse_args(argv)
@@ -139,7 +138,6 @@ def main(argv: Optional[list[str]] = None) -> int:
             video_path=video,
             cfg=cfg,
             det_model_path=args.det_model,
-            pose_model_path=args.pose_model,
             device=args.device,
         ):
             payload = asdict(status)

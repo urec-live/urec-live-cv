@@ -2,10 +2,6 @@
   "camera_id": "dev_cam_01",
   "frame_interval_sec": 0.5,
   "in_use_persist_sec": 3.0,
-  "motion": {
-    "keypoints_to_use": ["left_wrist", "right_wrist", "left_knee", "right_knee", "left_ankle", "right_ankle"],
-    "min_mean_pixel_movement": 10.0
-  },
   "equipment_zones": [
     {
       "equipment_id": "treadmill_01",

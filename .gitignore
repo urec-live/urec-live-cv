@@ -19,4 +19,4 @@ gym_videos/
 
 # models and logs
 yolov8x.pt
-yolov8x-pose.pt
+yolov8n.pt

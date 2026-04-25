@@ -1,12 +1,11 @@
-# Smart Gym Equipment Usage Detection (YOLO + Pose + Zones)
+# Smart Gym Equipment Usage Detection (YOLO + Zones)
 
 This repo is an end-to-end MVP for detecting **whether gym equipment is actively in use** from video feeds, using:
 
-- **YOLO (Ultralytics)** for object detection (person + equipment)
-- **YOLO Pose** for human keypoints
+- **YOLO (Ultralytics)** for person detection
 - **Zone occupancy** (per equipment ROI)
-- **Pose motion** over time to decide *active exercise*
-- **Persistence logic**: in-zone + motion for \(>3s\) → `IN_USE`
+- **Presence persistence** over time to decide *machine in use*
+- **Persistence logic**: in-zone presence for \(>3s\) → `IN_USE`
 - **FastAPI** backend to publish / receive equipment status updates
 
 It is designed for CCTV/RTSP in production, but supports **prerecorded `.mp4` videos** during development.
@@ -99,5 +98,5 @@ The demo will:
 
 ## Notes / Next steps
 
-- For best accuracy you’ll want an equipment-trained YOLO model (your listed classes), and optionally a lightweight motion classifier per equipment type.
-- The MVP uses simple “pose keypoint displacement” as motion; you can later replace this with action recognition (running / pressing / curling).
+- For best accuracy you’ll want an equipment-trained YOLO model that reliably detects people and machine-specific zones in your camera views.
+- The MVP uses only human presence inside a configured machine zone; you can later refine it with better zone calibration or multi-camera fusion.
